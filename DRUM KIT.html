@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Full Drumkit</title>
+<style>
+  body {
+    margin:0;
+    background:#000 url("drumset.jpg") center/cover no-repeat; /* ✅ Full drumset background */
+    color:#fff;
+    font-family: Arial, sans-serif;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    height:100vh;
+    position:relative;
+    backdrop-filter: blur(2px);
+  }
+  h1 { margin:10px; text-shadow: 2px 2px 5px #000; }
+  p { text-shadow: 1px 1px 3px #000; }
+
+  #keys {
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(60px,1fr));
+    gap:6px;
+    width:90%;
+    max-width:800px;
+    z-index:2;
+  }
+  .key {
+    border:1px solid #333;
+    background:#111 center/cover no-repeat;
+    padding:12px;
+    text-align:center;
+    font-size:14px;
+    border-radius:6px;
+    user-select:none;
+    transition: all 0.1s;
+    color:#fff;
+    position:relative;
+    height:60px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer; /* ✅ clickable */
+  }
+  .key::after {
+    content: attr(data-label);
+    position:absolute;
+    bottom:4px;
+    left:50%;
+    transform:translateX(-50%);
+    font-size:11px;
+    background:rgba(0,0,0,0.6);
+    padding:2px 4px;
+    border-radius:3px;
+  }
+  .key.playing {
+    background-size:110% auto;
+    color:#0f0;
+    transform:scale(1.1);
+    border-color:#0f0;
+  }
+
+  /* ✅ Watermark */
+  .watermark {
+    position:fixed;
+    bottom:8px;
+    right:12px;
+    font-size:12px;
+    color:rgba(255,255,255,0.6);
+    font-style:italic;
+    user-select:none;
+    pointer-events:none;
+    text-shadow:1px 1px 3px #000;
+  }
+</style>
+</head>
+<body>
+  <h1>Full Keyboard Drumkit</h1>
+  <p>Press keys or click on drums to play</p>
+  <div id="keys"></div>
+
+  <!-- ✅ Watermark -->
+  <div class="watermark">Made By Saket</div>
+
+<script>
+const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+let ctx;
+let audioStarted = false;
+
+function startAudio() {
+  if(!ctx){ ctx = new AudioContextClass(); }
+  audioStarted = true;
+}
+
+// --- DRUM SOUNDS ---
+function playKick(){ const now = ctx.currentTime; const o = ctx.createOscillator(); const g = ctx.createGain();
+  o.type="sine"; o.frequency.setValueAtTime(150,now); o.frequency.exponentialRampToValueAtTime(45,now+0.4);
+  g.gain.setValueAtTime(1,now); g.gain.exponentialRampToValueAtTime(0.001,now+0.5);
+  o.connect(g); g.connect(ctx.destination); o.start(now); o.stop(now+0.5); }
+
+function playSnare(){ const now=ctx.currentTime; const b=ctx.createBuffer(1,ctx.sampleRate*0.2,ctx.sampleRate);
+  const d=b.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; const s=ctx.createBufferSource();
+  s.buffer=b; const g=ctx.createGain(); g.gain.setValueAtTime(1,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.2);
+  s.connect(g); g.connect(ctx.destination); s.start(now); s.stop(now+0.2);
+  const o=ctx.createOscillator(); o.type="triangle"; o.frequency.setValueAtTime(200,now);
+  const g2=ctx.createGain(); g2.gain.setValueAtTime(0.7,now); g2.gain.exponentialRampToValueAtTime(0.01,now+0.2);
+  o.connect(g2); g2.connect(ctx.destination); o.start(now); o.stop(now+0.2); }
+
+function playHiHat(){ const now=ctx.currentTime; const b=ctx.createBuffer(1,ctx.sampleRate*0.05,ctx.sampleRate);
+  const d=b.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
+  const s=ctx.createBufferSource(); s.buffer=b; const hp=ctx.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=5000;
+  const g=ctx.createGain(); g.gain.setValueAtTime(0.6,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.1);
+  s.connect(hp); hp.connect(g); g.connect(ctx.destination); s.start(now); s.stop(now+0.1); }
+
+function playTom(freq=180){ const now=ctx.currentTime; const o=ctx.createOscillator(); o.type="sine"; o.frequency.setValueAtTime(freq,now);
+  const g=ctx.createGain(); g.gain.setValueAtTime(0.9,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.5);
+  o.connect(g); g.connect(ctx.destination); o.start(now); o.stop(now+0.5); }
+
+function playClap(){ const now=ctx.currentTime; for(let k=0;k<3;k++){ const b=ctx.createBuffer(1,ctx.sampleRate*0.05,ctx.sampleRate);
+  const d=b.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(ctx.sampleRate*0.015));
+  const s=ctx.createBufferSource(); s.buffer=b; const g=ctx.createGain(); g.gain.setValueAtTime(1,now+0.02*k); g.gain.exponentialRampToValueAtTime(0.01,now+0.05+0.02*k);
+  s.connect(g); g.connect(ctx.destination); s.start(now+0.02*k); s.stop(now+0.05+0.02*k); } }
+
+function playCrash(){ const now=ctx.currentTime; const b=ctx.createBuffer(1,ctx.sampleRate*1.2,ctx.sampleRate);
+  const d=b.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(ctx.sampleRate*0.7));
+  const s=ctx.createBufferSource(); s.buffer=b; const hp=ctx.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=1000;
+  const g=ctx.createGain(); g.gain.setValueAtTime(0.9,now); g.gain.exponentialRampToValueAtTime(0.001,now+1.2);
+  s.connect(hp); hp.connect(g); g.connect(ctx.destination); s.start(now); s.stop(now+1.2); }
+
+// ✅ Sound + Images
+const sounds = [
+  playKick, playSnare, playHiHat, ()=>playTom(140), ()=>playTom(200),
+  playClap, playCrash
+];
+const instrumentLabels = ["Kick","Snare","HiHat","Tom Low","Tom High","Clap","Crash"];
+const instrumentImages = [
+  "kick.png", "snare.png", "hihat.png", "tom1.png", "tom2.png",
+  "clap.png", "crash.png"
+];
+
+const container = document.getElementById("keys");
+const allKeys = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890`-=[]\\;',./".split("");
+
+// Build UI
+allKeys.forEach((k,i)=>{
+  const div=document.createElement("div");
+  div.className="key";
+  div.textContent=k;
+  div.dataset.label = instrumentLabels[i % sounds.length];
+  div.style.backgroundImage=`url(${instrumentImages[i % instrumentImages.length]})`;
+  div.addEventListener("click",()=>playKey(k)); // ✅ clickable
+  container.appendChild(div);
+});
+
+function playKey(k){
+  if(!audioStarted) startAudio();
+  const index = allKeys.indexOf(k.toUpperCase());
+  if(index<0) return;
+  const sound = sounds[index % sounds.length];
+  sound();
+  const el = container.children[index];
+  if(el){
+    el.classList.add("playing");
+    setTimeout(()=>el.classList.remove("playing"),120);
+  }
+}
+
+// Keyboard play
+window.addEventListener("keydown",e=>{
+  playKey(e.key);
+});
+</script>
+</body>
+</html>
